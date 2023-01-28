@@ -1,0 +1,99 @@
+# aws cloudformation update-stack --stack-name "database-stack" --template-body file://database.template.yaml
+
+Description: 'Database Stack for URL Shortener'
+
+Parameters:
+
+  NetworkStackName:
+    Type: String
+    Description: 'Name of the Network Stack'
+    Default: 'network-stack'
+
+  DatabaseUsername:
+    Type: String
+    Description: 'Database Username'
+    Default: 'root'
+
+  DatabasePassword:
+    Type: String
+    Description: 'Database Password'
+    NoEcho: true
+    Default: 'Masterkey123'
+
+  DatabaseName:
+    Type: String
+    Description: 'Database Username'
+    Default: 'urldb'
+
+Resources:
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: 'Security Group for Database'
+      VpcId:
+        Fn::ImportValue:
+          !Sub '${NetworkStackName}:VpcId'
+
+  DatabaseIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref DatabaseSecurityGroup
+      IpProtocol: 'tcp'
+      FromPort: '3306'
+      ToPort: '3306'
+      CidrIp: '0.0.0.0/0'
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: 'Subnet Group for Database'
+      SubnetIds:
+        - Fn::ImportValue:
+            !Sub '${NetworkStackName}:PrivateSubnet0'
+        - Fn::ImportValue:
+            !Sub '${NetworkStackName}:PrivateSubnet1'
+        - Fn::ImportValue:
+            !Sub '${NetworkStackName}:PrivateSubnet2'
+
+  DatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      Engine: 'aurora-mysql'
+      EngineMode: 'serverless'
+      MasterUsername: !Ref 'DatabaseUsername'
+      MasterUserPassword: !Ref 'DatabasePassword'
+      DBSubnetGroupName: !Ref 'DatabaseSubnetGroup'
+      DatabaseName: !Ref 'DatabaseName'
+      EnableHttpEndpoint: 'true'
+      Port: '3306'
+      VpcSecurityGroupIds:
+        - !Ref 'DatabaseSecurityGroup'
+
+Outputs:
+  DatabaseSecurityGroupId:
+    Value: !GetAtt 'DatabaseSecurityGroup.GroupId'
+    Description: 'Security Group ID for Database'
+
+  DatabaseClusterArn:
+    Value: !GetAtt 'DatabaseCluster.DBClusterArn'
+    Description: 'Database Cluster Arn'
+
+  DatabaseClusterEndpoint:
+    Value: !GetAtt 'DatabaseCluster.Endpoint.Address'
+    Export:
+      Name: !Sub '${AWS::StackName}:DBAddress'
+
+  DatabaseName:
+    Value: !Ref 'DatabaseName'
+    Export:
+      Name: !Sub '${AWS::StackName}:DBName'
+
+  DatabaseUsername:
+    Value: !Ref 'DatabaseUsername'
+    Export:
+      Name: !Sub '${AWS::StackName}:DBUsername'
+
+  DatabasePassword:
+    Value: !Ref 'DatabasePassword'
+    Export:
+      Name: !Sub '${AWS::StackName}:DBPassword'
