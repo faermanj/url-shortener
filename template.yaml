@@ -1,12 +1,23 @@
 # sam deploy -t 'template.yaml' --stack-name 'shortener-stack' --capabilities CAPABILITY_IAM --resolve-s3
-
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: Sample SAM Template for url-shortener
 
+Parameters:
+  NetworkStackName:
+    Type: String
+    Description: The name of the network stack
+    Default: network-stack
+
+  DatabaseStackName:
+    Type: String
+    Description: The name of the network stack
+    Default: database-stack
+
 Globals:
   Function:
-    Timeout: 60
+    Timeout: 20
+    MemorySize: 128
 
 Resources:
   FunctionSecurityGroup:
@@ -15,7 +26,7 @@ Resources:
       GroupDescription: Security group for the function
       VpcId:
         Fn::ImportValue:
-          !Sub '${NetworkStack}:VpcId'
+          !Sub '${NetworkStackName}:VpcId'
 
   ShortenerFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
@@ -31,14 +42,27 @@ Resources:
           - !Ref 'FunctionSecurityGroup'
         SubnetIds:
           - Fn::ImportValue:
-              !Sub '${NetworkStack}:PrivateSubnet0'
+              !Sub '${NetworkStackName}:PrivateSubnet0'
           - Fn::ImportValue:
-              !Sub '${NetworkStack}:PrivateSubnet1'
+              !Sub '${NetworkStackName}:PrivateSubnet1'
           - Fn::ImportValue:
-              !Sub '${NetworkStack}:PrivateSubnet2'
+              !Sub '${NetworkStackName}:PrivateSubnet2'
 
       Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
         Variables:
+          DB_USERNAME:
+            Fn::ImportValue:
+              !Sub '${DatabaseStackName}:DBUsername'
+          DB_PASSWORD:
+            Fn::ImportValue:
+              !Sub '${DatabaseStackName}:DBPassword'
+          DB_NAME:
+            Fn::ImportValue:
+              !Sub '${DatabaseStackName}:DBName'
+          DB_ADDRESS:
+            Fn::ImportValue:
+              !Sub '${DatabaseStackName}:DBAddress'
+
           JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1 # More info about tiered compilation https://aws.amazon.com/blogs/compute/optimizing-aws-lambda-function-performance-for-java/
       Events:
         Shortener:
