@@ -1,17 +1,22 @@
+# sam deploy -t 'template.yaml' --stack-name 'shortener-stack' --capabilities CAPABILITY_IAM --resolve-s3
+
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: >
-  url-shortener
+Description: Sample SAM Template for url-shortener
 
-  Sample SAM Template for url-shortener
-
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 20
-    MemorySize: 128
+    Timeout: 60
 
 Resources:
+  FunctionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for the function
+      VpcId:
+        Fn::ImportValue:
+          !Sub '${NetworkStack}:VpcId'
+
   ShortenerFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
@@ -21,9 +26,19 @@ Resources:
       Architectures:
         - x86_64
       MemorySize: 512
+      VpcConfig:
+        SecurityGroupIds:
+          - !Ref 'FunctionSecurityGroup'
+        SubnetIds:
+          - Fn::ImportValue:
+              !Sub '${NetworkStack}:PrivateSubnet0'
+          - Fn::ImportValue:
+              !Sub '${NetworkStack}:PrivateSubnet1'
+          - Fn::ImportValue:
+              !Sub '${NetworkStack}:PrivateSubnet2'
+
       Environment: # More info about Env Vars: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#environment-object
         Variables:
-          PARAM1: VALUE
           JAVA_TOOL_OPTIONS: -XX:+TieredCompilation -XX:TieredStopAtLevel=1 # More info about tiered compilation https://aws.amazon.com/blogs/compute/optimizing-aws-lambda-function-performance-for-java/
       Events:
         Shortener:
